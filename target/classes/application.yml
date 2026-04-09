@@ -1,9 +1,16 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:employeedb
-    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:employeedb;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.hibernate.dialect.H2Dialect
     username: sa
     password: ""
+    hikari:
+      # 连接池配置
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
   
   jpa:
     hibernate:
@@ -12,7 +19,30 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
         "[format_sql]": true
+        # 批量处理配置
+        jdbc:
+          batch_size: 50
+          batch_versioned_data: true
+          order_inserts: true
+          order_updates: true
+        # 查询缓存配置
+        cache:
+          use_second_level_cache: false
+        # 统计信息
+        generate_statistics: false
     show-sql: true
+    open-in-view: false
+
+# 自定义配置
+app:
+  # 分页配置
+  pagination:
+    # 最大页码数
+    max-page-size: 100
+    # 默认页大小
+    default-page-size: 10
+    # 最大返回记录数
+    max-page-result: 1000
 
 server:
   port: 8080

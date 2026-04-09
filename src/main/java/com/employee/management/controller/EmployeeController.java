@@ -1,7 +1,10 @@
 package com.employee.management.controller;
 
 import com.employee.management.annotation.PreventDuplicateSubmit;
+import com.employee.management.config.PaginationConfig;
 import com.employee.management.dto.ApiResponse;
+import com.employee.management.dto.CursorPageRequest;
+import com.employee.management.dto.CursorPageResponse;
 import com.employee.management.dto.ExportRequest;
 import com.employee.management.dto.PageResponse;
 import com.employee.management.entity.Employee;
@@ -28,6 +31,9 @@ public class EmployeeController {
     
     @Autowired
     private EmployeeService employeeService;
+    
+    @Autowired
+    private PaginationConfig paginationConfig;
     
     @GetMapping
     public ApiResponse<PageResponse<Employee>> getEmployees(
@@ -112,6 +118,66 @@ public class EmployeeController {
             return ApiResponse.error(400, e.getMessage());
         } catch (Exception e) {
             return ApiResponse.error(500, "服务器内部错误");
+        }
+    }
+    
+    // ============================================
+    // 性能优化接口
+    // ============================================
+    
+    /**
+     * 游标分页查询员工列表（优化深度分页性能）
+     * 使用游标代替 OFFSET，性能不随页码深度下降
+     */
+    @GetMapping("/cursor")
+    public ApiResponse<CursorPageResponse<Employee>> getEmployeesByCursor(
+            CursorPageRequest pageRequest) {
+        logger.info("游标分页查询 - cursor: {}, size: {}, sortField: {}, sortDirection: {}", 
+                pageRequest.getCursor(), pageRequest.getSize(), 
+                pageRequest.getSortField(), pageRequest.getSortDirection());
+        
+        try {
+            CursorPageResponse<Employee> response = employeeService.searchEmployeesByCursor(pageRequest);
+            return ApiResponse.success(response);
+        } catch (Exception e) {
+            logger.error("游标分页查询失败", e);
+            return ApiResponse.error(500, "服务器内部错误：" + e.getMessage());
+        }
+    }
+    
+    /**
+     * 延迟关联分页查询（优化深度分页）
+     * 先查询 ID 列表，再关联查询详细信息
+     */
+    @GetMapping("/optimized")
+    public ApiResponse<PageResponse<Employee>> getEmployeesOptimized(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        logger.info("优化分页查询 - page: {}, size: {}", page, size);
+        
+        try {
+            PageResponse<Employee> response = employeeService.searchEmployeesOptimized(page, size);
+            return ApiResponse.success(response);
+        } catch (Exception e) {
+            logger.error("优化分页查询失败", e);
+            return ApiResponse.error(500, "服务器内部错误：" + e.getMessage());
+        }
+    }
+    
+    /**
+     * 批量插入员工数据（优化批量写入性能）
+     */
+    @PostMapping("/batch")
+    public ApiResponse<List<Employee>> batchCreateEmployees(@RequestBody List<Employee> employees) {
+        logger.info("批量插入员工数据 - 数量：{}", employees.size());
+        
+        try {
+            List<Employee> savedEmployees = employeeService.batchSave(employees);
+            return ApiResponse.success(savedEmployees);
+        } catch (RuntimeException e) {
+            return ApiResponse.error(400, e.getMessage());
+        } catch (Exception e) {
+            return ApiResponse.error(500, "服务器内部错误：" + e.getMessage());
         }
     }
     

@@ -12,6 +12,7 @@ com\employee\management\repository\SalaryStructureRepository.class
 com\employee\management\entity\OvertimeRecord.class
 com\employee\management\dto\TurnoverDepartmentDTO.class
 com\employee\management\repository\OperationLogRepository.class
+com\employee\management\dto\CursorPageRequest.class
 com\employee\management\dto\EmployeeCountDTO.class
 com\employee\management\dto\VerifyTokenResponse.class
 com\employee\management\service\SalaryService.class
@@ -22,6 +23,7 @@ com\employee\management\config\WebConfig.class
 com\employee\management\repository\DepartmentRepository.class
 com\employee\management\annotation\PreventDuplicateSubmit.class
 com\employee\management\controller\AttendanceController.class
+com\employee\management\dto\CursorPageResponse.class
 com\employee\management\repository\OfferRepository.class
 com\employee\management\repository\PerformanceResultRepository.class
 com\employee\management\util\EmployeeCodeGenerator.class
@@ -43,6 +45,7 @@ com\employee\management\entity\LeaveApplication.class
 com\employee\management\repository\LeaveApplicationRepository.class
 com\employee\management\repository\LoginLogRepository.class
 com\employee\management\service\NoticeService.class
+com\employee\management\config\PaginationConfig.class
 com\employee\management\entity\OperationLog.class
 com\employee\management\repository\PerformanceCycleRepository.class
 com\employee\management\repository\PositionRepository.class

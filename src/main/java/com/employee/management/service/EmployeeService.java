@@ -1,5 +1,8 @@
 package com.employee.management.service;
 
+import com.employee.management.dto.CursorPageRequest;
+import com.employee.management.dto.CursorPageResponse;
+import com.employee.management.dto.PageResponse;
 import com.employee.management.entity.Employee;
 import com.employee.management.repository.EmployeeRepository;
 import com.employee.management.util.EmployeeCodeGenerator;
@@ -7,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -158,5 +162,120 @@ public class EmployeeService {
     
     public List<Employee> getEmployeesForExport(String name, String code) {
         return searchEmployees(name, code);
+    }
+    
+    // ============================================
+    // 性能优化方法
+    // ============================================
+    
+    /**
+     * 游标分页查询（优化深度分页性能）
+     */
+    @Transactional(readOnly = true)
+    public com.employee.management.dto.CursorPageResponse<Employee> searchEmployeesByCursor(
+            com.employee.management.dto.CursorPageRequest pageRequest) {
+        
+        Long cursor = pageRequest.getCursor();
+        Integer size = pageRequest.getSize();
+        String sortField = pageRequest.getSortField();
+        String sortDirection = pageRequest.getSortDirection();
+        
+        Sort sort = "asc".equalsIgnoreCase(sortDirection) ? 
+                    Sort.by(sortField).ascending() : Sort.by(sortField).descending();
+        Pageable pageable = PageRequest.of(0, size, sort);
+        
+        List<Employee> employees;
+        
+        if (cursor == null || cursor == 0) {
+            // 第一页
+            employees = employeeRepository.findAll(pageable).getContent();
+        } else {
+            // 使用游标查询
+            if ("asc".equalsIgnoreCase(sortDirection)) {
+                employees = employeeRepository.findByIdGreaterThan(cursor, pageable);
+            } else {
+                employees = employeeRepository.findByIdLessThan(cursor, pageable);
+            }
+        }
+        
+        // 计算下一个游标
+        Long nextCursor = null;
+        if (!employees.isEmpty()) {
+            nextCursor = employees.get(employees.size() - 1).getId();
+        }
+        
+        return com.employee.management.dto.CursorPageResponse.of(employees, nextCursor, size);
+    }
+    
+    /**
+     * 延迟关联分页查询（优化深度分页）
+     * 先查询 ID 列表，再关联查询详细信息
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<Employee> searchEmployeesOptimized(int page, int size) {
+        int pageNumber = page - 1;
+        Pageable pageable = PageRequest.of(pageNumber, size);
+        
+        // 第一步：查询 ID 列表
+        List<Long> ids = employeeRepository.findIds(pageable);
+        
+        if (ids.isEmpty()) {
+            return new PageResponse<>(0L, page, size, new java.util.ArrayList<>());
+        }
+        
+        // 第二步：根据 ID 列表查询详细信息
+        List<Employee> employees = employeeRepository.findByIds(ids);
+        
+        // 保持 ID 列表的顺序
+        employees.sort((e1, e2) -> {
+            int index1 = ids.indexOf(e1.getId());
+            int index2 = ids.indexOf(e2.getId());
+            return Integer.compare(index1, index2);
+        });
+        
+        // 计算总数
+        long total = employeeRepository.count();
+        
+        return new PageResponse<>(total, page, size, employees);
+    }
+    
+    /**
+     * 批量保存员工数据（优化批量写入性能）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public List<Employee> batchSave(List<Employee> employees) {
+        if (employees == null || employees.isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+        
+        // 验证数据
+        for (Employee employee : employees) {
+            validateEmployee(employee);
+        }
+        
+        // 批量生成工号
+        for (Employee employee : employees) {
+            if (employee.getEmployeeCode() == null) {
+                employee.setEmployeeCode(employeeCodeGenerator.generateUniqueEmployeeCode());
+            }
+        }
+        
+        // 批量保存
+        return employeeRepository.saveAll(employees);
+    }
+    
+    /**
+     * 验证员工数据
+     */
+    private void validateEmployee(Employee employee) {
+        if (employee.getName() == null || employee.getName().trim().isEmpty()) {
+            throw new RuntimeException("员工姓名不能为空");
+        }
+        if (employee.getEmail() == null || employee.getEmail().trim().isEmpty()) {
+            throw new RuntimeException("员工邮箱不能为空");
+        }
+        if (employee.getAge() != null && (employee.getAge() < 18 || employee.getAge() > 65)) {
+            throw new RuntimeException("员工年龄必须在 18-65 岁之间");
+        }
     }
 }
